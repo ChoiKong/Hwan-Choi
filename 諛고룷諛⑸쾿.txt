@@ -1,0 +1,36 @@
+﻿복식 대진표 앱 배포 방법 (무료, 약 10분)
+
+이 폴더를 인터넷에 올리면 링크가 하나 생기고, 그 링크를 받은 사람은
+아이폰·안드로이드·PC에서 앱처럼 설치해서 쓸 수 있어요.
+아래는 GitHub Pages(무료)로 올리는 방법입니다.
+
+■ 1. 올리기 (처음 한 번)
+ 1) https://github.com 에서 회원가입 후 로그인
+ 2) 오른쪽 위 [+] → [New repository]
+    - Repository name: tennis-draw (원하는 영문 이름)
+    - Public 선택 → [Create repository]
+ 3) 다음 화면에서 "uploading an existing file" 링크 클릭
+ 4) tennis-app 폴더 "안의" 파일과 폴더를 모두 끌어다 놓기
+    (index.html, manifest.json, sw.js, icons 폴더)
+    → 아래 [Commit changes]
+ 5) 저장소 위쪽 [Settings] → 왼쪽 [Pages]
+    - Branch: main, 폴더: / (root) → [Save]
+ 6) 1~2분 뒤 같은 화면 위쪽에 주소가 나옵니다.
+    예) https://내아이디.github.io/tennis-draw/
+    이 주소를 카톡 등으로 공유하면 끝!
+
+■ 2. 받는 사람이 설치하는 법
+ - 아이폰: Safari로 링크 열기 → 아래쪽 공유 버튼 → [홈 화면에 추가]
+   (꼭 Safari로 여세요. 카톡 안에서 열렸다면 오른쪽 아래 메뉴 → 'Safari로 열기')
+ - 안드로이드: Chrome으로 링크 열기 → 화면의 [설치] 버튼 또는 메뉴 → [앱 설치]
+ - PC: Chrome/Edge 주소창 오른쪽 설치 아이콘
+
+■ 3. 알아두면 좋은 점
+ - 명단은 각자 자기 휴대폰에만 저장돼요. 서버로 전송되지 않아요.
+ - 설치 후에는 인터넷이 없어도 열려요.
+ - 앱을 지운 뒤 다시 설치하면 그 휴대폰에 저장된 명단도 지워져요.
+
+■ 4. 나중에 앱을 고쳐서 다시 올릴 때
+ 1) GitHub 저장소에서 바뀐 파일을 같은 방법으로 다시 업로드
+ 2) sw.js 맨 위의 VERSION 값을 "v1.1"처럼 올려서 함께 업로드
+    → 사용자들 앱이 다음 실행 때 자동으로 새 버전으로 바뀌어요.

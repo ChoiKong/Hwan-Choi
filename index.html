@@ -1,0 +1,783 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>복식 대진표</title>
+<meta name="description" content="테니스 복식 대진표를 공평하게 짜 주는 앱">
+<meta name="theme-color" content="#24574a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="복식 대진표">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=IBM+Plex+Sans+KR:wght@400;500;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+body{margin:0}
+/* Layout: one phone-width column; sticky tab bar on top, fixed "대진 짜기" bar at the bottom */
+:root{
+  --bg:#eef2ee; --surface:#ffffff; --sunk:#f4f7f4; --ink:#15302a; --muted:#5d6f69; --line:#d6ded8;
+  --court:#24574a; --court-ink:#ffffff; --ball:#d9e64a; --ball-ink:#1d2a06;
+  --male:#1f5fa8; --female:#c2366b; --mixed:#6d4bb3; --odd:#7a7a7a; --warn:#b5541d; --scrim:rgba(10,20,16,.45);
+  --f-display:"Black Han Sans","IBM Plex Sans KR",system-ui,sans-serif;
+  --f-body:"IBM Plex Sans KR",-apple-system,"Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0f1714; --surface:#17221e; --sunk:#121b18; --ink:#e3ebe6; --muted:#93a59e; --line:#2a3833;
+  --court:#2f6e5c; --court-ink:#f2f7f4; --ball:#d3df45; --ball-ink:#1d2a06;
+  --male:#86b4ee; --female:#f293b6; --mixed:#b8a0ec; --odd:#a3a3a3; --warn:#e8a46a; --scrim:rgba(0,0,0,.6); color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0f1714; --surface:#17221e; --sunk:#121b18; --ink:#e3ebe6; --muted:#93a59e; --line:#2a3833;
+  --court:#2f6e5c; --court-ink:#f2f7f4; --ball:#d3df45; --ball-ink:#1d2a06;
+  --male:#86b4ee; --female:#f293b6; --mixed:#b8a0ec; --odd:#a3a3a3; --warn:#e8a46a; --scrim:rgba(0,0,0,.6); color-scheme:dark}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.5;-webkit-tap-highlight-color:transparent}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:30;background:var(--bg)}
+.wrap{max-width:720px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:18px 120px}
+header{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap}
+h1{font-family:var(--f-display);font-weight:400;font-size:28px;line-height:1.1;margin:0;letter-spacing:.01em}
+h1 .dot{display:inline-block;width:.5em;height:.5em;border-radius:50%;background:var(--ball);margin-left:.15em;vertical-align:.1em}
+.save{font-size:12px;color:var(--muted)}
+.tabs{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:var(--bg);padding-block:12px 10px;margin-top:6px}
+.seg{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;background:var(--sunk);border:1px solid var(--line);border-radius:10px;padding:3px;gap:3px}
+.seg button{font:inherit;font-weight:500;border:0;border-radius:7px;background:transparent;color:var(--muted);padding:8px 6px;cursor:pointer;min-height:38px}
+.seg button[aria-pressed="true"]{background:var(--surface);color:var(--ink);font-weight:700;box-shadow:0 1px 2px rgba(0,0,0,.08)}
+.seg button .n{font-family:var(--f-mono);font-size:12px;margin-left:4px;color:var(--muted)}
+.view{display:flex;flex-direction:column;gap:14px}
+.count{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:14px;color:var(--muted)}
+.count b{color:var(--ink);font-family:var(--f-mono)}
+.toolbar{display:flex;gap:6px;flex-wrap:wrap}
+.btn{font:inherit;font-size:14px;font-weight:500;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:8px;padding:8px 12px;cursor:pointer;min-height:38px}
+.btn.primary{background:var(--court);color:var(--court-ink);border-color:transparent;font-weight:700}
+.btn.ball{background:var(--ball);color:var(--ball-ink);border-color:transparent;font-weight:700}
+.btn.danger{color:var(--warn)}
+.btn:focus-visible,.seg button:focus-visible,.chk:focus-visible,.info:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px solid var(--court);outline-offset:2px}
+input[type=text],input[type=search],textarea{width:100%;font:inherit;font-size:16px;color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:9px 11px}
+textarea{min-height:200px;resize:vertical;line-height:1.6}
+.list{background:var(--surface);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.mem{display:flex;align-items:center;border-top:1px solid var(--line)}
+.mem:first-child{border-top:0}
+.chk{flex:none;width:52px;height:52px;border:0;background:transparent;display:grid;place-items:center;cursor:pointer}
+.chk span{width:24px;height:24px;border-radius:7px;border:2px solid var(--line);display:grid;place-items:center;color:transparent;font-weight:700;font-size:14px}
+.chk[aria-pressed="true"] span{background:var(--court);border-color:var(--court);color:var(--court-ink)}
+.info{flex:1;min-width:0;display:flex;align-items:center;justify-content:space-between;gap:8px;border:0;background:transparent;font:inherit;color:inherit;text-align:left;padding:12px 14px 12px 0;cursor:pointer}
+.nm{font-weight:700;font-size:16px;overflow-wrap:anywhere}
+.M{color:var(--male)} .F{color:var(--female)}
+.mem.off .nm{color:var(--muted);font-weight:500}
+.tags{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end}
+.tag{font-family:var(--f-mono);font-size:12px;border:1px solid var(--line);border-radius:999px;padding:1px 8px;color:var(--muted);white-space:nowrap}
+.tag.opt{background:var(--ball);color:var(--ball-ink);border-color:transparent}
+.empty{background:var(--surface);border:1px dashed var(--line);border-radius:12px;padding:22px 18px;display:flex;flex-direction:column;gap:12px;align-items:flex-start}
+.empty p{margin:0;color:var(--muted)}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:14px}
+.field{display:flex;flex-direction:column;gap:6px}
+.lbl{font-size:12px;font-weight:700;letter-spacing:.05em;color:var(--muted)}
+.hint{font-size:13px;color:var(--muted);margin:0}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.stepper{display:inline-flex;align-items:center;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--surface)}
+.stepper button{font:inherit;font-size:20px;width:44px;height:42px;border:0;background:var(--sunk);color:var(--ink);cursor:pointer}
+.stepper output{min-width:52px;text-align:center;font-family:var(--f-mono);font-weight:600;font-size:17px}
+input[type=range]{width:100%;accent-color:var(--court);height:30px}
+.switch{display:flex;align-items:center;justify-content:space-between;gap:12px;cursor:pointer}
+.switch input{width:22px;height:22px;accent-color:var(--court)}
+.num{display:flex;align-items:center;gap:6px}
+.num input{width:64px;text-align:center}
+.sum{font-size:14px;line-height:1.7}
+.sum b{font-family:var(--f-mono)}
+.warns{margin:0;padding-left:18px;color:var(--warn);font-size:13px;display:flex;flex-direction:column;gap:2px}
+.round{background:var(--surface);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.round h3{margin:0;padding:10px 14px;font-size:15px;background:var(--sunk);border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:baseline}
+.round h3 .rn{font-family:var(--f-mono);font-weight:600}
+.round h3 small{font-weight:400;color:var(--muted);font-size:12px}
+.match{padding:10px 14px;border-top:1px solid var(--line);display:grid;grid-template-columns:auto minmax(0,1fr);gap:4px 12px;align-items:center}
+.match:first-of-type{border-top:0}
+.ct{font-family:var(--f-mono);font-size:12px;font-weight:600;color:var(--muted);display:flex;flex-direction:column;align-items:center;gap:4px;min-width:52px}
+.kind{font-family:var(--f-body);font-size:11px;font-weight:700;color:#fff;border-radius:999px;padding:1px 8px}
+.k-혼복{background:var(--mixed)} .k-남복{background:var(--male)} .k-여복{background:var(--female)} .k-혼합{background:var(--odd)}
+:root .kind{color:var(--surface)}
+.teams{display:flex;flex-wrap:wrap;align-items:center;gap:2px 8px;font-weight:700;min-width:0}
+.teams .vs{font-weight:400;font-size:12px;color:var(--muted)}
+.rest{padding:9px 14px;border-top:1px solid var(--line);font-size:13px;color:var(--muted);display:flex;flex-direction:column;gap:2px}
+.rest b{font-weight:500}
+.tablewrap{overflow-x:auto;background:var(--surface);border:1px solid var(--line);border-radius:12px}
+table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums;min-width:380px}
+th,td{padding:9px 12px;border-bottom:1px solid var(--line);text-align:center;white-space:nowrap;font-size:14px}
+th{font-size:12px;color:var(--muted);background:var(--sunk)}
+td:first-child,th:first-child{text-align:left}
+tr:last-child td{border-bottom:0}
+.imgbox{display:flex;flex-direction:column;gap:8px}
+.imgbox img{width:100%;border:1px solid var(--line);border-radius:10px;background:#fff;-webkit-touch-callout:default}
+.bar{position:fixed;left:0;right:0;bottom:0;z-index:25;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);border-top:1px solid var(--line);padding-top:10px;padding-bottom:calc(10px + env(safe-area-inset-bottom,0px));padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.bar .in{max-width:720px;margin:0 auto;display:flex;gap:10px;align-items:center}
+.bar .btn{flex:1;min-height:48px;font-size:16px}
+.install{margin-top:12px;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 14px;display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;font-size:14px}
+.ver{font-size:12px;color:var(--muted);text-align:center;margin-top:8px}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);padding:8px 14px;border-radius:999px;font-size:14px;z-index:40;max-width:calc(100% - 32px)}
+.sheet-bg{position:fixed;inset:0;background:var(--scrim);z-index:50;display:flex;align-items:flex-end;justify-content:center}
+.sheet{background:var(--surface);width:100%;max-width:560px;border-radius:16px 16px 0 0;padding:18px max(16px,env(safe-area-inset-right,0px)) calc(18px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));max-height:92vh;overflow:auto;display:flex;flex-direction:column;gap:14px}
+@media (min-width:600px){.sheet-bg{align-items:center}.sheet{border-radius:16px}}
+.sheet h2{margin:0;font-size:18px}
+.sheet .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.err{color:var(--warn);font-size:13px;margin:0;min-height:1em}
+.sheet .acts{display:flex;gap:8px;justify-content:space-between;flex-wrap:wrap}
+.sheet .acts .btn{min-height:44px}
+@media (prefers-reduced-motion:no-preference){.sheet{animation:up .18s ease-out}@keyframes up{from{transform:translateY(24px);opacity:.6}to{transform:none;opacity:1}}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>복식 대진표<span class="dot" aria-hidden="true"></span></h1>
+    <span class="save" id="saveState">불러오는 중…</span>
+  </header>
+
+  <div class="install" id="installTip" hidden>
+    <span id="installText"></span>
+    <span class="row" style="gap:6px"><button type="button" class="btn ball" id="installBtn" hidden>설치</button><button type="button" class="btn" id="installClose" aria-label="안내 닫기">닫기</button></span>
+  </div>
+
+  <nav class="tabs">
+    <div class="seg" role="tablist">
+      <button type="button" id="tab-roster" aria-pressed="true">명단<span class="n" id="tabCount"></span></button>
+      <button type="button" id="tab-setup" aria-pressed="false">조건</button>
+      <button type="button" id="tab-result" aria-pressed="false">대진표</button>
+    </div>
+  </nav>
+
+  <!-- 명단 -->
+  <section class="view" id="v-roster">
+    <div class="count" id="countLine"></div>
+    <div class="toolbar">
+      <button type="button" class="btn ball" id="addBtn">+ 회원 추가</button>
+      <button type="button" class="btn" id="allOn">전체 참석</button>
+      <button type="button" class="btn" id="allOff">전체 불참</button>
+      <button type="button" class="btn" id="resetOpt">오늘 옵션 초기화</button>
+    </div>
+    <input type="search" id="search" placeholder="이름 검색" aria-label="이름 검색" hidden>
+    <div id="rosterBox"></div>
+    <div class="toolbar">
+      <button type="button" class="btn" id="bulkBtn">여러 명 붙여넣기</button>
+      <button type="button" class="btn danger" id="wipeBtn" style="margin-left:auto">명단 전체 삭제</button>
+    </div>
+    <p class="hint">왼쪽 네모를 눌러 오늘 참석을 체크하세요. 이름을 누르면 실력과 오늘 옵션(참석 라운드, 요청 경기 수)을 바꿀 수 있어요. 오늘 옵션은 날짜가 바뀌면 자동으로 비워져요.</p>
+  </section>
+
+  <!-- 조건 -->
+  <section class="view" id="v-setup" hidden>
+    <div class="card">
+      <div class="field">
+        <label class="lbl" for="title">제목</label>
+        <input type="text" id="title" autocomplete="off">
+      </div>
+      <div class="row" style="justify-content:space-between">
+        <span class="lbl">라운드 수</span>
+        <div class="stepper"><button type="button" id="rMinus" aria-label="라운드 줄이기">−</button><output id="rounds">8</output><button type="button" id="rPlus" aria-label="라운드 늘리기">+</button></div>
+      </div>
+      <div class="field">
+        <label class="lbl" for="courts">코트 번호</label>
+        <input type="text" id="courts" inputmode="text" autocomplete="off" placeholder="예: 3, 5, 7">
+        <p class="hint">쉼표나 띄어쓰기로 구분해요. 코트 수만큼 동시에 경기해요.</p>
+      </div>
+      <div class="field">
+        <div class="row" style="justify-content:space-between"><label class="lbl" for="ratio">혼복 비율</label><b id="ratioVal" style="font-family:var(--f-mono)">50%</b></div>
+        <input type="range" id="ratio" min="0" max="100" step="5" value="50">
+        <p class="hint">전체 경기 중 혼복(남녀 한 명씩 짝) 경기의 비율이에요. 나머지는 남복·여복으로 짜고, 성비 때문에 안 되면 가장 가까운 값으로 맞춰요.</p>
+      </div>
+      <label class="switch"><span>실력 밸런스 맞추기 <span class="hint">(실력을 입력한 경우)</span></span><input type="checkbox" id="useSkill" checked></label>
+      <label class="switch"><span>이미지에 실력 표시</span><input type="checkbox" id="showSkill"></label>
+    </div>
+    <p class="hint">옵션이 없는 사람은 모두 같은 경기 수, 많아야 1경기 차이로 짜요. 같은 파트너·상대 반복과 연속 휴식도 최대한 피해요.</p>
+    <p class="hint">명단은 이 기기에만 저장되고 어디에도 전송되지 않아요. 인터넷이 없어도 쓸 수 있어요.</p>
+    <p class="ver">복식 대진표 v1.0</p>
+  </section>
+
+  <!-- 대진표 -->
+  <section class="view" id="v-result" hidden>
+    <div id="resultBox"></div>
+  </section>
+</div>
+
+<div class="bar"><div class="in">
+  <button type="button" class="btn primary" id="genBtn">대진 짜기</button>
+</div></div>
+
+<div class="sheet-bg" id="editBg" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="editTitle">
+    <h2 id="editTitle">회원 추가</h2>
+    <div class="field"><label class="lbl" for="fName">이름</label><input type="text" id="fName" autocomplete="off"></div>
+    <div class="field"><span class="lbl">성별</span>
+      <div class="seg" id="fGender"><button type="button" data-v="M" aria-pressed="true">남</button><button type="button" data-v="F" aria-pressed="false">여</button></div></div>
+    <div class="field"><span class="lbl">실력 (선택)</span>
+      <div class="seg" id="fSkill"><button type="button" data-v="" aria-pressed="true">없음</button><button type="button" data-v="A" aria-pressed="false">A</button><button type="button" data-v="B" aria-pressed="false">B</button><button type="button" data-v="C" aria-pressed="false">C</button></div></div>
+    <div class="field"><span class="lbl">오늘 옵션 (선택)</span>
+      <div class="grid2">
+        <label class="num"><input type="text" inputmode="numeric" id="fStart" aria-label="시작 라운드">라운드부터</label>
+        <label class="num"><input type="text" inputmode="numeric" id="fEnd" aria-label="종료 라운드">라운드까지</label>
+        <label class="num"><input type="text" inputmode="numeric" id="fMax" aria-label="요청 경기 수">경기까지만</label>
+      </div>
+      <p class="hint">비워 두면 처음부터 끝까지, 제한 없이 참여해요.</p></div>
+    <p class="err" id="fErr"></p>
+    <div class="acts">
+      <button type="button" class="btn danger" id="fDel">삭제</button>
+      <span style="display:flex;gap:8px;margin-left:auto"><button type="button" class="btn" id="fCancel">취소</button><button type="button" class="btn primary" id="fSave">저장</button></span>
+    </div>
+  </div>
+</div>
+
+<div class="sheet-bg" id="bulkBg" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="bulkTitle">
+    <h2 id="bulkTitle">여러 명 붙여넣기</h2>
+    <p class="hint">한 줄에 한 명씩: 이름 성별 [실력]<br>예) 김민준 남 A / 이서연 여</p>
+    <textarea id="bulkText" aria-label="명단"></textarea>
+    <p class="err" id="bulkErr"></p>
+    <div class="acts"><span></span><span style="display:flex;gap:8px"><button type="button" class="btn" id="bulkCancel">취소</button><button type="button" class="btn primary" id="bulkOk">추가</button></span></div>
+  </div>
+</div>
+
+<div class="toast" id="toast" hidden></div>
+
+<script>
+(function(){
+"use strict";
+const $=id=>document.getElementById(id);
+const MIXED="혼복",MEN="남복",WOMEN="여복",ODD="혼합";
+const SV={A:3,B:2,C:1};
+const LKEY="tennis-mobile-v1";
+const today=()=>{const d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");};
+const defTitle=()=>{const d=new Date();return `${d.getMonth()+1}/${d.getDate()} 테니스 복식 대진표`;};
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
+
+let state={members:[],settings:{rounds:8,courts:"1, 2, 3",ratio:50,useSkill:true,showSkill:false,title:""},date:today(),last:null};
+let dbRef=null, view="roster", saveTimer=null;
+
+/* ───────── 대진 알고리즘 (파이썬 버전과 동일) ───────── */
+function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+const key=(a,b)=>a<b?a*4096+b:b*4096+a;
+
+function makeSchedule(P,R,courts,ratio,useSkill,attempts){
+  const n=P.length,C=courts.length,W_MIX=0.8,W_ODD=12;
+  const availArr=P.map(p=>{const lo=Math.max(1,p.start||1),hi=Math.min(R,p.end||R),a=[];for(let r=lo-1;r<hi;r++)a.push(r);return a;});
+  const avail=availArr.map(a=>new Set(a));
+  const cap=P.map((p,i)=>p.max?Math.min(p.max,availArr[i].length):availArr[i].length);
+  const optional=P.map((p,i)=>!!p.max||availArr[i].length<R);
+  const slots=[];
+  for(let r=0;r<R;r++){let c=0;for(let i=0;i<n;i++)if(avail[i].has(r)&&cap[i]>0)c++;slots.push(Math.min(C,Math.floor(c/4)));}
+  const sk=P.map(p=>SV[p.skill]||2);
+
+  function targets(){
+    const T=4*slots.reduce((a,b)=>a+b,0);
+    let L=0;while(L<R&&cap.reduce((s,c)=>s+Math.min(c,L+1),0)<=T)L++;
+    const t=cap.map(c=>Math.min(c,L));
+    const extra=T-t.reduce((a,b)=>a+b,0);
+    const cand=shuffle(cap.map((_,i)=>i).filter(i=>cap[i]>L)).sort((a,b)=>availArr[b].length-availArr[a].length);
+    for(let k=0;k<extra&&k<cand.length;k++)t[cand[k]]++;
+    return [t,L];
+  }
+  function composition(m,f,k,xDes){
+    let best=null;
+    for(let x=0;x<=Math.min(k,m>>1,f>>1);x++)for(let a=0;a<=k-x;a++)for(let b=0;b<=k-x-a;b++){
+      const rm=m-2*x-3*a-b,rf=f-2*x-a-3*b;
+      if(rm<0||rf<0||rm%4||rf%4)continue;
+      const pen=Math.abs(x-xDes)*W_MIX+(a+b)*W_ODD;
+      if(!best||pen<best.pen)best={c:[x,rm/4,rf/4,a,b],pen};
+    }
+    return best;
+  }
+  function select(elig,prio,must,k,mixedSoFar,matchesSoFar){
+    const men=elig.filter(i=>P[i].gender==="M").sort((a,b)=>prio[b]-prio[a]);
+    const women=elig.filter(i=>P[i].gender!=="M").sort((a,b)=>prio[b]-prio[a]);
+    const xDes=ratio*(matchesSoFar+k)-mixedSoFar;
+    for(const strict of [true,false]){
+      const fm=strict?men.filter(i=>must.has(i)).length:0, ff=strict?women.filter(i=>must.has(i)).length:0;
+      let best=null;
+      for(let m=0;m<=4*k;m++){
+        const f=4*k-m;
+        if(m>men.length||f>women.length||m<fm||f<ff)continue;
+        const comp=composition(m,f,k,xDes);if(!comp)continue;
+        let sc=-comp.pen;for(let j=0;j<m;j++)sc+=prio[men[j]];for(let j=0;j<f;j++)sc+=prio[women[j]];
+        if(!best||sc>best.sc)best={sc,m,f,c:comp.c};
+      }
+      if(best)return{men:men.slice(0,best.m),women:women.slice(0,best.f),comp:best.c};
+    }
+    return null;
+  }
+  function cost(t1,t2,pc,oc){
+    let c=0;
+    if(useSkill){
+      const d=(sk[t1[0]]+sk[t1[1]])-(sk[t2[0]]+sk[t2[1]]);c+=d*d*6;
+      const v=[sk[t1[0]],sk[t1[1]],sk[t2[0]],sk[t2[1]]];c+=Math.max(...v)-Math.min(...v);
+    }
+    c+=((pc.get(key(t1[0],t1[1]))||0)**2+(pc.get(key(t2[0],t2[1]))||0)**2)*10;
+    for(const i of t1)for(const j of t2)c+=(oc.get(key(i,j))||0)*2;
+    return c;
+  }
+  function form(men,women,comp,pc,oc){
+    const [x,y,z,a,b]=comp,plan=[];
+    for(let i=0;i<x;i++)plan.push([2,2,MIXED]);for(let i=0;i<y;i++)plan.push([4,0,MEN]);
+    for(let i=0;i<z;i++)plan.push([0,4,WOMEN]);for(let i=0;i<a;i++)plan.push([3,1,ODD]);for(let i=0;i<b;i++)plan.push([1,3,ODD]);
+    men=men.slice();women=women.slice();
+    const iters=40+25*plan.length;let best=null;
+    for(let it=0;it<iters;it++){
+      shuffle(men);shuffle(women);
+      let mi=0,wi=0,total=0;const out=[];
+      for(const [nm,nw,kind] of plan){
+        const g=men.slice(mi,mi+nm).concat(women.slice(wi,wi+nw));mi+=nm;wi+=nw;
+        const [p,q,r,s]=g;
+        const opts=kind===MIXED?[[[p,r],[q,s]],[[p,s],[q,r]]]:[[[p,q],[r,s]],[[p,r],[q,s]],[[p,s],[q,r]]];
+        let bc=Infinity,bt=null;
+        for(const [t1,t2] of opts){const c=cost(t1,t2,pc,oc);if(c<bc){bc=c;bt=[t1,t2];}}
+        total+=bc;out.push({t1:bt[0],t2:bt[1],kind});
+      }
+      if(!best||total<best.total){best={total,out};if(total===0)break;}
+    }
+    return best.out;
+  }
+  function attempt(){
+    const [target,L]=targets();
+    const played=new Array(n).fill(0),pc=new Map(),oc=new Map(),rounds=[];
+    let mixedTotal=0,matchTotal=0,consec=0,empty=0,skillPen=0,restedPrev=new Set();
+    for(let r=0;r<R;r++){
+      const availNow=[];for(let i=0;i<n;i++)if(avail[i].has(r))availNow.push(i);
+      const elig=availNow.filter(i=>!(P[i].max&&played[i]>=P[i].max));
+      const k=Math.min(slots[r],Math.floor(elig.length/4));
+      empty+=slots[r]-k;
+      const prio={},must=new Set();
+      for(const i of elig){
+        const rem=availArr[i].filter(rr=>rr>=r).length,need=target[i]-played[i];
+        let p;
+        if(need>0){p=1+need/rem;if(need>=rem){must.add(i);p+=2;}if(restedPrev.has(i))p+=0.3;}
+        else{p=need-(optional[i]?0.5:0);if(restedPrev.has(i))p+=0.2;}
+        prio[i]=p+Math.random()*0.15;
+      }
+      const matches=[];
+      if(k>0){
+        const sel=select(elig,prio,must,k,mixedTotal,matchTotal);
+        if(sel){
+          const formed=form(sel.men,sel.women,sel.comp,pc,oc);
+          formed.forEach((m,ci)=>{
+            matches.push({court:courts[ci],t1:m.t1,t2:m.t2,kind:m.kind});
+            for(const t of [m.t1,m.t2]){const kk=key(t[0],t[1]);pc.set(kk,(pc.get(kk)||0)+1);}
+            for(const i of m.t1)for(const j of m.t2){const kk=key(i,j);oc.set(kk,(oc.get(kk)||0)+1);}
+            for(const i of m.t1.concat(m.t2))played[i]++;
+            if(m.kind===MIXED)mixedTotal++;
+            if(useSkill){const d=(sk[m.t1[0]]+sk[m.t1[1]])-(sk[m.t2[0]]+sk[m.t2[1]]);skillPen+=d*d;}
+          });
+          matchTotal+=formed.length;
+        }
+      }
+      const playing=new Set();matches.forEach(m=>m.t1.concat(m.t2).forEach(i=>playing.add(i)));
+      const eligSet=new Set(elig);
+      const rest=availNow.filter(i=>!playing.has(i)&&eligSet.has(i));
+      const done=availNow.filter(i=>!eligSet.has(i));
+      const absent=[];for(let i=0;i<n;i++)if(!avail[i].has(r))absent.push(i);
+      consec+=rest.filter(i=>restedPrev.has(i)).length;
+      rounds.push({number:r+1,matches,rest,absent,done});
+      restedPrev=new Set(rest);
+    }
+    let score=0;
+    const reg=[];for(let i=0;i<n;i++)if(!optional[i])reg.push(played[i]);
+    let lo,hi;
+    if(reg.length){const sp=Math.max(...reg)-Math.min(...reg);score+=1000*Math.max(0,sp-1)+30*sp;lo=Math.min(...reg);hi=Math.max(...reg);}
+    else{lo=L;hi=L+1;}
+    for(let i=0;i<n;i++)if(optional[i]){
+      const el=Math.min(cap[i],lo),eh=Math.min(cap[i],hi);
+      if(played[i]<el)score+=300*(el-played[i]);
+      if(played[i]>eh)score+=300*(played[i]-eh);
+    }
+    score+=Math.abs(mixedTotal-ratio*matchTotal)*25;
+    rounds.forEach(rd=>rd.matches.forEach(m=>{if(m.kind===ODD)score+=40;}));
+    pc.forEach(c=>{if(c>1)score+=(c-1)*15;});
+    oc.forEach(c=>{if(c>1)score+=(c-1)*2;});
+    score+=consec*6+skillPen*3+empty*100;
+    return{score,rounds,played};
+  }
+
+  let best=null;
+  for(let a=0;a<attempts;a++){const r=attempt();if(!best||r.score<best.score)best=r;}
+  const {rounds,played}=best;
+  const counts={[MIXED]:0,[MEN]:0,[WOMEN]:0,[ODD]:0};
+  rounds.forEach(rd=>rd.matches.forEach(m=>counts[m.kind]++));
+  const total=counts[MIXED]+counts[MEN]+counts[WOMEN]+counts[ODD];
+  const warnings=[];
+  const regIdx=[];for(let i=0;i<n;i++)if(!optional[i])regIdx.push(i);
+  let lo=null;
+  if(regIdx.length){
+    const g=regIdx.map(i=>played[i]),mn=Math.min(...g),mx=Math.max(...g);lo=mn;
+    if(mx-mn>1)warnings.push(`일반 참가자의 경기 수 차이가 ${mx-mn}경기예요 (최소 ${mn}, 최대 ${mx}). 라운드나 코트 수를 조정해 보세요.`);
+  }
+  for(let i=0;i<n;i++){
+    if(cap[i]===0)warnings.push(`${P[i].name}: 참석 가능한 라운드가 없어 대진에서 빠졌어요.`);
+    else if(optional[i]&&lo!==null){const e=Math.min(cap[i],lo);if(played[i]<e)warnings.push(`${P[i].name}: 참석 범위 안에서 ${played[i]}경기만 배정됐어요 (기대 ${e}경기).`);}
+  }
+  const short={};
+  rounds.forEach(rd=>{if(rd.matches.length<C)(short[rd.matches.length]=short[rd.matches.length]||[]).push(rd.number);});
+  Object.keys(short).sort().forEach(u=>warnings.push(`${short[u].join(", ")}라운드: 출전 가능한 인원이 부족해 코트를 ${u}면만 사용해요.`));
+  if(total&&Math.abs(counts[MIXED]-ratio*total)>=1)warnings.push(`성비 때문에 혼복 비율이 목표(${Math.round(ratio*100)}%)와 달라요: 실제 ${Math.round(counts[MIXED]/total*100)}% (${counts[MIXED]}/${total}경기).`);
+  if(counts[ODD])warnings.push(`남녀 인원 구성상 경기 수를 고르게 맞추려고 혼합 경기(예: 남남 vs 남녀)를 ${counts[ODD]}경기 넣었어요.`);
+  return{rounds,games:played,counts,warnings,ratio,optional};
+}
+
+/* ───────── 저장 ───────── */
+function snapshot(){return JSON.parse(JSON.stringify(state));}
+function persist(){
+  try{localStorage.setItem(LKEY,JSON.stringify(state));}
+  catch(e){$("saveState").textContent="저장 실패: 개인정보 보호 모드인지 확인해 주세요";}
+  if(!dbRef){return;}
+  clearTimeout(saveTimer);
+  $("saveState").textContent="저장 중…";
+  saveTimer=setTimeout(async()=>{
+    try{await dbRef.set(snapshot());$("saveState").textContent="자동 저장됨";}
+    catch(e){
+      if(e&&e.code==="unavailable"){setTimeout(persist,1200);return;}
+      $("saveState").textContent="이 기기에만 저장됨";
+    }
+  },500);
+}
+function normalize(s){
+  const d=s||{};
+  const st={members:Array.isArray(d.members)?d.members.map(m=>({id:m.id||uid(),name:String(m.name||""),gender:m.gender==="F"?"F":"M",skill:["A","B","C"].includes(m.skill)?m.skill:"",start:+m.start||0,end:+m.end||0,max:+m.max||0,attend:m.attend!==false})):[],
+    settings:Object.assign({rounds:8,courts:"1, 2, 3",ratio:50,useSkill:true,showSkill:false,title:""},d.settings||{}),
+    date:d.date||today(),last:d.last||null};
+  if(st.date!==today()){ // 날짜가 바뀌면 오늘 옵션과 제목을 초기화
+    st.members.forEach(m=>{m.start=m.end=m.max=0;});
+    st.settings.title="";st.last=null;st.date=today();
+  }
+  return st;
+}
+function loadLocal(){try{const s=localStorage.getItem(LKEY);if(s)state=normalize(JSON.parse(s));if(s)localStorage.setItem(LKEY,JSON.stringify(state));}catch(e){}}
+async function connect(){
+  $("saveState").textContent="자동 저장됨";
+  // 브라우저가 저장 공간을 임의로 지우지 않도록 요청 (지원하는 브라우저만)
+  try{if(navigator.storage&&navigator.storage.persist)await navigator.storage.persist();}catch(e){}
+}
+
+/* ───────── 화면 ───────── */
+let toastT;
+function toast(msg){const t=$("toast");t.textContent=msg;t.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>t.hidden=true,2200);}
+function setView(v){
+  view=v;
+  for(const k of ["roster","setup","result"]){$("tab-"+k).setAttribute("aria-pressed",k===v);$("v-"+k).hidden=k!==v;}
+  $("genBtn").textContent=v==="result"&&state.last?"다시 짜기":"대진 짜기";
+  window.scrollTo(0,0);
+}
+function sorted(){return state.members.slice().sort((a,b)=>a.name.localeCompare(b.name,"ko"));}
+function optText(m){const t=[];if(m.start||m.end)t.push(`${m.start||1}R~${m.end?m.end+"R":"끝"}`);if(m.max)t.push(`${m.max}경기`);return t;}
+function renderCounts(){
+  const on=state.members.filter(m=>m.attend),men=on.filter(m=>m.gender==="M").length;
+  $("countLine").innerHTML=state.members.length?`회원 <b>${state.members.length}</b>명 · 오늘 참석 <b>${on.length}</b>명 <span>(남 ${men} · 여 ${on.length-men})</span>`:"";
+  $("tabCount").textContent=on.length?on.length:"";
+}
+function renderRoster(){
+  renderCounts();
+  const box=$("rosterBox"),q=$("search").value.trim();
+  $("search").hidden=state.members.length<15;
+  if(!state.members.length){
+    box.innerHTML=`<div class="empty"><b>아직 등록된 회원이 없어요.</b><p>회원을 한 번 등록해 두면 계속 저장돼요. 다음부터는 참석만 체크하면 돼요.</p><div class="toolbar"><button type="button" class="btn ball" data-act="add">+ 회원 추가</button><button type="button" class="btn" data-act="bulk">여러 명 붙여넣기</button><button type="button" class="btn" data-act="sample">예시 12명으로 체험</button></div></div>`;
+    return;
+  }
+  const list=sorted().filter(m=>!q||m.name.includes(q));
+  box.innerHTML=`<div class="list">${list.map(m=>`
+    <div class="mem${m.attend?"":" off"}" data-id="${m.id}">
+      <button type="button" class="chk" aria-pressed="${m.attend}" aria-label="${esc(m.name)} 참석"><span>✓</span></button>
+      <button type="button" class="info"><span class="nm ${m.gender}">${esc(m.name)}</span>
+        <span class="tags">${m.skill?`<span class="tag">${m.skill}</span>`:""}${optText(m).map(t=>`<span class="tag opt">${t}</span>`).join("")}<span class="tag">${m.gender==="M"?"남":"여"}</span></span></button>
+    </div>`).join("")}</div>${list.length?"":`<p class="hint">검색 결과가 없어요.</p>`}`;
+}
+function loadSettingsUI(){
+  const s=state.settings;
+  $("title").value=s.title||defTitle();
+  $("rounds").textContent=s.rounds;
+  $("courts").value=s.courts;
+  $("ratio").value=s.ratio;$("ratioVal").textContent=s.ratio+"%";
+  $("useSkill").checked=!!s.useSkill;$("showSkill").checked=!!s.showSkill;
+}
+function courtLabel(c){return /^\d+$/.test(c)?`${c}번 코트`:c;}
+function renderResult(){
+  const box=$("resultBox"),L=state.last;
+  if(!L){box.innerHTML=`<div class="empty"><b>아직 대진표가 없어요.</b><p>명단에서 오늘 참석을 체크하고 아래 [대진 짜기]를 누르세요.</p></div>`;return;}
+  const P=L.players,res=L.res,c=res.counts,total=c[MIXED]+c[MEN]+c[WOMEN]+c[ODD];
+  const reg=P.map((p,i)=>res.optional[i]?null:res.games[i]).filter(v=>v!==null);
+  const nm=i=>`<span class="${P[i].gender}">${esc(P[i].name)}</span>`;
+  const team=t=>t.map(nm).join(" · ");
+  let h=`<div class="card" style="gap:8px">
+    <div class="sum"><b>${esc(L.title)}</b><br>총 <b>${total}</b>경기 · 혼복 <b>${c[MIXED]}</b> · 남복 <b>${c[MEN]}</b> · 여복 <b>${c[WOMEN]}</b>${c[ODD]?` · 혼합 <b>${c[ODD]}</b>`:""}<br>
+    혼복 비율 <b>${total?Math.round(c[MIXED]/total*100):0}%</b> (목표 ${Math.round(res.ratio*100)}%)${reg.length?` · 일반 참가자 <b>${Math.min(...reg)}~${Math.max(...reg)}</b>경기`:""}</div>
+    ${res.warnings.length?`<ul class="warns">${res.warnings.map(w=>`<li>${esc(w)}</li>`).join("")}</ul>`:""}
+    <div class="toolbar"><button type="button" class="btn ball" id="mkImg">이미지 만들기</button><button type="button" class="btn" id="copyTxt">텍스트 복사</button></div>
+    <div class="imgbox" id="imgBox" hidden></div>
+  </div>
+  <div class="seg" id="resSeg"><button type="button" data-v="draw" aria-pressed="${resTab==="draw"}">라운드별</button><button type="button" data-v="stat" aria-pressed="${resTab==="stat"}">참가 현황</button></div>`;
+  if(resTab==="draw"){
+    h+=res.rounds.map(rd=>`<div class="round"><h3><span class="rn">${rd.number}R</span><small>${rd.matches.length}코트</small></h3>
+      ${rd.matches.map(m=>`<div class="match"><div class="ct">${esc(courtLabel(m.court))}<span class="kind k-${m.kind}">${m.kind}</span></div>
+        <div class="teams"><span>${team(m.t1)}</span><span class="vs">vs</span><span>${team(m.t2)}</span></div></div>`).join("")}
+      <div class="rest"><span>휴식 · <b>${rd.rest.length?rd.rest.map(nm).join(", "):"없음"}</b></span>
+      ${rd.done.length?`<span>완료 · ${rd.done.map(i=>esc(P[i].name)).join(", ")}</span>`:""}
+      ${rd.absent.length?`<span>불참 · ${rd.absent.map(i=>esc(P[i].name)).join(", ")}</span>`:""}</div></div>`).join("");
+  }else{
+    h+=`<div class="tablewrap"><table><thead><tr><th>이름</th><th>실력</th><th>경기</th><th>휴식 라운드</th><th>옵션</th></tr></thead><tbody>${
+      P.map((p,i)=>{const rests=res.rounds.filter(rd=>rd.rest.includes(i)).map(rd=>rd.number);
+        return `<tr><td>${nm(i)}</td><td>${p.skill||"-"}</td><td><b>${res.games[i]}</b></td><td>${rests.length?rests.join(", ")+"R":"-"}</td><td>${optText(p).join(" · ")||"-"}</td></tr>`;}).join("")
+    }</tbody></table></div>`;
+  }
+  box.innerHTML=h;
+}
+let resTab="draw";
+function renderAll(){renderRoster();renderResult();if(view==="result")setView("result");}
+
+/* ───────── 이미지 ───────── */
+const FAM='"IBM Plex Sans KR","Apple SD Gothic Neo","Malgun Gothic",sans-serif';
+const IC={bg:"#ffffff",ink:"#1d2b26",muted:"#6b7a74",grid:"#d6dfda",head:"#24574a",headInk:"#ffffff",alt:"#f3f7f4",male:"#1f5fa8",female:"#c2366b",
+  kind:{[MIXED]:"#6d4bb3",[MEN]:"#1f5fa8",[WOMEN]:"#c2366b",[ODD]:"#7a7a7a"}};
+async function renderCanvas(L){
+  try{await Promise.all([document.fonts.load(`400 20px "IBM Plex Sans KR"`),document.fonts.load(`700 20px "IBM Plex Sans KR"`)]);}catch(e){}
+  const P=L.players,res=L.res,courts=L.courts,show=L.showSkill;
+  const label=i=>show&&P[i].skill?`${P[i].name}(${P[i].skill})`:P[i].name;
+  const gcol=i=>P[i].gender==="M"?IC.male:IC.female;
+  const pad=48,roundW=110,courtW=330,restW=300,nC=courts.length;
+  const W=pad*2+roundW+courtW*nC+restW;
+  const cv=document.createElement("canvas"),ctx=cv.getContext("2d");
+  const F=(s,b)=>`${b?700:400} ${s}px ${FAM}`;
+  const tw=(t,f)=>{ctx.font=f;return ctx.measureText(t).width;};
+  const teamFont=t=>{const txt=t.map(label).join(" · ");for(let s=25;s>=14;s--)if(tw(txt,F(s,true))<=courtW-30)return F(s,true);return F(14,true);};
+  function wrap(tokens,font,maxw){const lines=[];let cur=[],x=0;const sep=tw(", ",font);
+    for(const [t,c] of tokens){const w=tw(t,font);let add=(cur.length?sep:0)+w;if(cur.length&&x+add>maxw){lines.push(cur);cur=[];x=0;add=w;}cur.push([t,c]);x+=add;}
+    if(cur.length)lines.push(cur);return lines;}
+  const fRest=F(19),fSmall=F(16),layout=[],heights=[];
+  for(const rd of res.rounds){
+    const rl=wrap(rd.rest.map(i=>[label(i),gcol(i)]),fRest,restW-28);
+    const extra=[];for(const [tag,ids] of [["완료",rd.done],["불참",rd.absent]])if(ids.length)extra.push([tag,wrap(ids.map(i=>[label(i),IC.muted]),fSmall,restW-78)]);
+    layout.push([rl,extra]);
+    heights.push(Math.max(162,24+Math.max(1,rl.length)*30+extra.reduce((s,[,l])=>s+12+l.length*24,0)+16));
+  }
+  const titleH=130,headH=52,fCols=Math.max(1,Math.floor((W-2*pad)/230)),fRows=Math.ceil(P.length/fCols);
+  const H=pad+titleH+headH+heights.reduce((a,b)=>a+b,0)+70+fRows*40+50+pad;
+  cv.width=W;cv.height=H;
+  const T=(t,x,y,font,col,align="left",base="top")=>{ctx.font=font;ctx.fillStyle=col;ctx.textAlign=align;ctx.textBaseline=base;ctx.fillText(t,x,y);};
+  const rr=(x,y,w,h,r,col)=>{ctx.fillStyle=col;ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();ctx.fill();};
+  const line=(x1,y1,x2,y2)=>{ctx.strokeStyle=IC.grid;ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(x1+.5,y1+.5);ctx.lineTo(x2+.5,y2+.5);ctx.stroke();};
+  ctx.fillStyle=IC.bg;ctx.fillRect(0,0,W,H);
+  T(L.title,pad,pad,F(40,true),IC.ink);
+  const c=res.counts;
+  T(`${res.rounds.length}라운드 · 코트 ${nC}면 · 혼복 ${c[MIXED]} · 남복 ${c[MEN]} · 여복 ${c[WOMEN]}${c[ODD]?` · 혼합 ${c[ODD]}`:""}`,pad,pad+62,F(20),IC.muted);
+  let lx=W-pad;
+  for(const [t,col] of [["여",IC.female],["남",IC.male]]){const f=F(20,true);lx-=tw(t,f);T(t,lx,pad+64,f,col);lx-=26;rr(lx,pad+68,18,18,4,col);lx-=22;}
+  let y=pad+titleH;const x0=pad;
+  ctx.fillStyle=IC.head;ctx.fillRect(x0,y,W-2*pad,headH);
+  const fh=F(20,true);
+  T("라운드",x0+roundW/2,y+headH/2,fh,IC.headInk,"center","middle");
+  courts.forEach((cn,ci)=>T(courtLabel(cn),x0+roundW+courtW*ci+courtW/2,y+headH/2,fh,IC.headInk,"center","middle"));
+  T("휴식",x0+roundW+courtW*nC+restW/2,y+headH/2,fh,IC.headInk,"center","middle");
+  y+=headH;
+  const drawTeam=(cx,cy,team,font)=>{const segs=[];team.forEach((i,j)=>{if(j)segs.push([" · ",IC.muted]);segs.push([label(i),gcol(i)]);});
+    let x=cx-segs.reduce((s,[t])=>s+tw(t,font),0)/2;for(const [t,col] of segs){T(t,x,cy,font,col,"left","middle");x+=tw(t,font);}};
+  res.rounds.forEach((rd,ri)=>{
+    const h=heights[ri];
+    if(ri%2){ctx.fillStyle=IC.alt;ctx.fillRect(x0,y,W-2*pad,h);}
+    T(`${rd.number}R`,x0+roundW/2,y+h/2,F(30,true),IC.ink,"center","middle");
+    for(let ci=0;ci<nC;ci++){
+      const cx0=x0+roundW+courtW*ci,cx=cx0+courtW/2;line(cx0,y,cx0,y+h);
+      const m=rd.matches[ci];
+      if(!m){T("—",cx,y+h/2,F(22),IC.grid,"center","middle");continue;}
+      const top=y+(h-140)/2,fb=F(16,true),bw=tw(m.kind,fb)+24;
+      rr(cx-bw/2,top,bw,28,14,IC.kind[m.kind]);
+      T(m.kind,cx,top+14,fb,"#ffffff","center","middle");
+      drawTeam(cx,top+58,m.t1,teamFont(m.t1));
+      T("vs",cx,top+88,F(16),IC.muted,"center","middle");
+      drawTeam(cx,top+118,m.t2,teamFont(m.t2));
+    }
+    const rx=x0+roundW+courtW*nC;line(rx,y,rx,y+h);
+    const [rl,extra]=layout[ri];let ty=y+24;
+    if(!rl.length){T("없음",rx+14,ty,fRest,IC.muted);ty+=30;}
+    for(const ln of rl){let x=rx+14;ln.forEach(([t,col],j)=>{if(j){T(", ",x,ty,fRest,IC.muted);x+=tw(", ",fRest);}T(t,x,ty,fRest,col);x+=tw(t,fRest);});ty+=30;}
+    for(const [tag,lines] of extra){ty+=12;T(tag,rx+14,ty,F(16,true),IC.muted);for(const ln of lines){T(ln.map(([t])=>t).join(", "),rx+64,ty,fSmall,IC.muted);ty+=24;}}
+    y+=h;line(x0,y,W-pad,y);
+  });
+  ctx.strokeStyle=IC.grid;ctx.strokeRect(x0+.5,pad+titleH+.5,W-2*pad-1,y-pad-titleH);
+  y+=36;T("참가자별 경기 수",pad,y,F(22,true),IC.ink);y+=44;
+  const cw=(W-2*pad)/fCols,fn=F(20,true),fg=F(20);
+  P.forEach((p,i)=>{const r=Math.floor(i/fCols),cc=i%fCols,x=pad+cc*cw,yy=y+r*40;T(label(i),x,yy,fn,gcol(i));T(`${res.games[i]}경기`,x+tw(label(i),fn)+10,yy,fg,IC.ink);});
+  y+=fRows*40+16;
+  const d=new Date();T(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")} 생성`,pad,y,F(15),IC.muted);
+  return cv;
+}
+async function makeImage(){
+  const L=state.last;if(!L)return;
+  const box=$("imgBox");box.hidden=false;box.innerHTML=`<p class="hint">이미지를 만드는 중…</p>`;
+  const cv=await renderCanvas(L);
+  const url=cv.toDataURL("image/png");
+  const fname=`대진표_${today().replace(/-/g,"")}.png`;
+  const blob=await new Promise(r=>cv.toBlob(r,"image/png"));
+  let file=null;try{file=new File([blob],fname,{type:"image/png"});}catch(e){}
+  const canShare=!!(file&&navigator.canShare&&navigator.canShare({files:[file]}));
+  box.innerHTML=`<img src="${url}" alt="대진표 이미지">
+    <div class="toolbar">${canShare?`<button type="button" class="btn primary" id="shareImg">공유 · 사진에 저장</button>`:""}
+    <a class="btn" id="dlImg" href="${URL.createObjectURL(blob)}" download="${fname}" style="text-decoration:none;display:inline-flex;align-items:center">파일로 저장</a></div>
+    <p class="hint">${canShare?"[공유 · 사진에 저장]에서 '이미지 저장'을 누르면 사진 앱에 저장되고, 카카오톡으로 바로 보낼 수도 있어요.":"이미지를 길게 눌러 저장할 수도 있어요."}</p>`;
+  if(canShare)$("shareImg").onclick=async()=>{
+    try{await navigator.share({files:[file],title:L.title});}
+    catch(e){if(e&&e.name!=="AbortError")toast("공유하지 못했어요. 이미지를 길게 눌러 저장해 주세요.");}
+  };
+  box.scrollIntoView({behavior:"smooth",block:"start"});
+}
+function copyText(){
+  const L=state.last;if(!L)return;
+  const P=L.players,n=t=>t.map(i=>P[i].name).join("·");
+  const out=[L.title];
+  L.res.rounds.forEach(rd=>{out.push(`\n[${rd.number}라운드]`);rd.matches.forEach(m=>out.push(` ${courtLabel(m.court)} (${m.kind}) ${n(m.t1)} vs ${n(m.t2)}`));if(rd.rest.length)out.push(" 휴식: "+rd.rest.map(i=>P[i].name).join(", "));});
+  const text=out.join("\n");
+  const fallback=()=>{const ta=document.createElement("textarea");ta.value=text;ta.setAttribute("readonly","");ta.style.position="fixed";ta.style.top="0";ta.style.opacity="0";document.body.appendChild(ta);ta.select();ta.setSelectionRange(0,text.length);let ok=false;try{ok=document.execCommand("copy");}catch(e){}ta.remove();toast(ok?"대진표를 복사했어요.":"복사가 막혀 있어요.");};
+  try{navigator.clipboard.writeText(text).then(()=>toast("대진표를 복사했어요."),fallback);}catch(e){fallback();}
+}
+
+/* ───────── 대진 짜기 ───────── */
+function parseCourts(t){const seen=new Set();return t.split(/[,\s]+/).map(s=>s.trim()).filter(s=>s&&!seen.has(s)&&seen.add(s));}
+function generate(){
+  const on=state.members.filter(m=>m.attend);
+  if(on.length<4){toast("오늘 참석에 체크된 사람이 4명 이상이어야 해요.");setView("roster");return;}
+  const courts=parseCourts(state.settings.courts);
+  if(!courts.length){toast("코트 번호를 1개 이상 입력해 주세요.");setView("setup");return;}
+  const P=on.map(m=>({name:m.name,gender:m.gender,skill:m.skill,start:m.start,end:m.end,max:m.max}));
+  const R=state.settings.rounds;
+  const useSkill=state.settings.useSkill&&P.some(p=>p.skill);
+  const btn=$("genBtn");btn.disabled=true;btn.textContent="짜는 중…";
+  setTimeout(()=>{
+    const res=makeSchedule(P,R,courts,state.settings.ratio/100,useSkill,50);
+    state.last={players:P,courts,res,title:state.settings.title||defTitle(),showSkill:state.settings.showSkill};
+    persist();btn.disabled=false;renderResult();setView("result");
+  },30);
+}
+
+/* ───────── 편집 시트 ───────── */
+let editing=null;
+function segSet(id,v){$(id).querySelectorAll("button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.v===v));}
+function segGet(id){const b=$(id).querySelector('button[aria-pressed="true"]');return b?b.dataset.v:"";}
+function openEdit(m){
+  editing=m||null;
+  $("editTitle").textContent=m?"회원 정보":"회원 추가";
+  $("fName").value=m?m.name:"";segSet("fGender",m?m.gender:"M");segSet("fSkill",m?m.skill:"");
+  $("fStart").value=m&&m.start?m.start:"";$("fEnd").value=m&&m.end?m.end:"";$("fMax").value=m&&m.max?m.max:"";
+  $("fErr").textContent="";$("fDel").hidden=!m;$("fDel").textContent="삭제";$("fDel").dataset.armed="";
+  $("editBg").hidden=false;if(!m)setTimeout(()=>$("fName").focus(),50);
+}
+function closeEdit(){$("editBg").hidden=true;editing=null;}
+function saveEdit(addAnother){
+  const name=$("fName").value.trim();
+  if(!name){$("fErr").textContent="이름을 입력해 주세요.";return;}
+  if(state.members.some(m=>m.name===name&&m!==editing)){$("fErr").textContent=`'${name}'은(는) 이미 명단에 있어요.`;return;}
+  const num=(id,lab)=>{const s=$(id).value.trim();if(!s)return 0;if(!/^\d+$/.test(s)||+s<1)throw lab+"는 1 이상의 숫자로 입력해 주세요.";return +s;};
+  let start,end,max;
+  try{start=num("fStart","시작 라운드");end=num("fEnd","종료 라운드");max=num("fMax","요청 경기 수");}catch(e){$("fErr").textContent=e;return;}
+  if(start&&end&&start>end){$("fErr").textContent="시작 라운드가 종료 라운드보다 늦어요.";return;}
+  const data={name,gender:segGet("fGender"),skill:segGet("fSkill"),start,end,max};
+  if(editing)Object.assign(editing,data);else state.members.push(Object.assign({id:uid(),attend:true},data));
+  persist();renderRoster();
+  if(!editing&&addAnother){toast(`${name} 추가`);openEdit(null);}else closeEdit();
+}
+
+/* ───────── 이벤트 ───────── */
+["roster","setup","result"].forEach(k=>$("tab-"+k).onclick=()=>setView(k));
+$("genBtn").onclick=generate;
+$("addBtn").onclick=()=>openEdit(null);
+$("allOn").onclick=()=>{state.members.forEach(m=>m.attend=true);persist();renderRoster();};
+$("allOff").onclick=()=>{state.members.forEach(m=>m.attend=false);persist();renderRoster();};
+$("resetOpt").onclick=()=>{state.members.forEach(m=>{m.start=m.end=m.max=0;});persist();renderRoster();toast("오늘 옵션을 비웠어요.");};
+$("search").oninput=renderRoster;
+$("rosterBox").addEventListener("click",e=>{
+  const act=e.target.closest("[data-act]");
+  if(act){
+    if(act.dataset.act==="add")openEdit(null);
+    else if(act.dataset.act==="bulk")openBulk();
+    else if(act.dataset.act==="sample"){
+      const s="김민준 남 A,이서연 여 B,박지훈 남 B,최유진 여 A,정도윤 남 C,강하은 여 C,윤서준 남 B,임지아 여 B,한예준 남 A,오수아 여 C,신우진 남 B,배나연 여 B";
+      s.split(",").forEach(x=>{const [n,g,k]=x.split(" ");state.members.push({id:uid(),name:n+" (예시)",gender:g==="남"?"M":"F",skill:k,start:0,end:0,max:0,attend:true});});
+      persist();renderRoster();toast("예시 명단을 넣었어요. 나중에 [명단 전체 삭제]로 지울 수 있어요.");
+    }
+    return;
+  }
+  const row=e.target.closest(".mem");if(!row)return;
+  const m=state.members.find(x=>x.id===row.dataset.id);if(!m)return;
+  if(e.target.closest(".chk")){m.attend=!m.attend;persist();renderRoster();}
+  else if(e.target.closest(".info"))openEdit(m);
+});
+$("wipeBtn").onclick=()=>{
+  const b=$("wipeBtn");
+  if(!state.members.length)return;
+  if(b.dataset.armed){state.members=[];b.dataset.armed="";b.textContent="명단 전체 삭제";persist();renderRoster();toast("명단을 모두 지웠어요.");return;}
+  b.dataset.armed="1";b.textContent="한 번 더 누르면 모두 삭제";
+  setTimeout(()=>{b.dataset.armed="";b.textContent="명단 전체 삭제";},4000);
+};
+["fGender","fSkill"].forEach(id=>$(id).addEventListener("click",e=>{const b=e.target.closest("button");if(b)segSet(id,b.dataset.v);}));
+$("fSave").onclick=()=>saveEdit(false);
+$("fName").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();saveEdit(true);}});
+$("fCancel").onclick=closeEdit;
+$("fDel").onclick=()=>{
+  const b=$("fDel");
+  if(!b.dataset.armed){b.dataset.armed="1";b.textContent="한 번 더 누르면 삭제";return;}
+  state.members=state.members.filter(m=>m!==editing);persist();renderRoster();closeEdit();
+};
+$("editBg").addEventListener("click",e=>{if(e.target===$("editBg"))closeEdit();});
+function openBulk(){$("bulkText").value="";$("bulkErr").textContent="";$("bulkBg").hidden=false;setTimeout(()=>$("bulkText").focus(),50);}
+$("bulkBtn").onclick=openBulk;
+$("bulkCancel").onclick=()=>$("bulkBg").hidden=true;
+$("bulkBg").addEventListener("click",e=>{if(e.target===$("bulkBg"))$("bulkBg").hidden=true;});
+$("bulkOk").onclick=()=>{
+  let added=0;const skipped=[];
+  $("bulkText").value.split("\n").forEach(line=>{
+    const t=line.trim().split(/[,\s\t]+/).filter(Boolean);if(!t.length)return;
+    let g=null,k="";
+    t.slice(1).forEach(x=>{const u=x.toUpperCase();if(["남","남자"].includes(x)||u==="M")g="M";else if(["여","여자"].includes(x)||u==="F")g="F";else if(["A","B","C"].includes(u))k=u;});
+    if(!g||state.members.some(m=>m.name===t[0])){skipped.push(t[0]);return;}
+    state.members.push({id:uid(),name:t[0],gender:g,skill:k,start:0,end:0,max:0,attend:true});added++;
+  });
+  if(!added&&!skipped.length){$("bulkErr").textContent="추가할 사람이 없어요.";return;}
+  persist();renderRoster();$("bulkBg").hidden=true;
+  toast(`${added}명 추가${skipped.length?` · 건너뜀 ${skipped.length}명(성별 없음/이름 중복)`:""}`);
+};
+document.addEventListener("keydown",e=>{if(e.key==="Escape"){closeEdit();$("bulkBg").hidden=true;}});
+
+$("title").oninput=e=>{state.settings.title=e.target.value;persist();};
+$("courts").oninput=e=>{state.settings.courts=e.target.value;persist();};
+$("ratio").oninput=e=>{state.settings.ratio=+e.target.value;$("ratioVal").textContent=e.target.value+"%";persist();};
+$("useSkill").onchange=e=>{state.settings.useSkill=e.target.checked;persist();};
+$("showSkill").onchange=e=>{state.settings.showSkill=e.target.checked;if(state.last)state.last.showSkill=e.target.checked;persist();};
+const stepR=d=>{state.settings.rounds=Math.max(1,Math.min(30,state.settings.rounds+d));$("rounds").textContent=state.settings.rounds;persist();};
+$("rMinus").onclick=()=>stepR(-1);$("rPlus").onclick=()=>stepR(1);
+$("resultBox").addEventListener("click",e=>{
+  if(e.target.id==="mkImg")makeImage();
+  else if(e.target.id==="copyTxt")copyText();
+  const sb=e.target.closest("#resSeg button");if(sb){resTab=sb.dataset.v;renderResult();}
+});
+
+loadLocal();loadSettingsUI();renderAll();
+if(state.last&&location.hash==="#result")setView("result");
+connect();
+
+/* ───────── 설치 안내 · 오프라인 ───────── */
+(function(){
+  const standalone=window.matchMedia("(display-mode: standalone)").matches||navigator.standalone===true;
+  let dismissed=false;try{dismissed=localStorage.getItem("tennis-install-dismissed")==="1";}catch(e){}
+  const tip=$("installTip");
+  const close=()=>{tip.hidden=true;try{localStorage.setItem("tennis-install-dismissed","1");}catch(e){}};
+  $("installClose").onclick=close;
+  if(standalone||dismissed)return;
+  const ios=/iphone|ipad|ipod/i.test(navigator.userAgent)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1);
+  if(ios){$("installText").innerHTML="홈 화면에 앱으로 설치하려면 Safari 아래쪽 <b>공유</b> 버튼 → <b>홈 화면에 추가</b>를 누르세요.";tip.hidden=false;}
+  let deferred=null;
+  window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();deferred=e;
+    $("installText").textContent="이 기기에 앱으로 설치할 수 있어요.";$("installBtn").hidden=false;tip.hidden=false;});
+  $("installBtn").onclick=async()=>{if(!deferred)return;deferred.prompt();try{await deferred.userChoice;}catch(e){}deferred=null;tip.hidden=true;};
+})();
+if("serviceWorker" in navigator&&location.protocol!=="file:"){
+  window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));
+}
+})();
+</script>
+</body>
+</html>
